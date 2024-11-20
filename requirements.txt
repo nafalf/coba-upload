@@ -1,7 +1,5 @@
 streamlit
-hashlib
-sqlite3
-base64
-io
+pillow
 numpy
+pycryptodome
 arc4
