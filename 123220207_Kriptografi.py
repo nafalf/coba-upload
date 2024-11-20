@@ -282,30 +282,6 @@ def delete_booking(booking_id):
     conn.commit()
     conn.close()
 
-# Jalankan fungsi update
-update_completed_bookings_table()
-
-def reset_completed_bookings():
-    """
-    Menghapus semua data di tabel completed_bookings dan mereset ID mulai dari 1.
-    """
-    try:
-        conn = sqlite3.connect("users.db")
-        c = conn.cursor()
-
-        # Hapus semua data di tabel completed_bookings
-        c.execute("DELETE FROM completed_bookings")
-
-        # Reset autoincrement ID
-        c.execute("DELETE FROM sqlite_sequence WHERE name='completed_bookings'")
-
-        conn.commit()
-        conn.close()
-        return "Riwayat pesanan berhasil dihapus dan ID dimulai dari 1 kembali."
-    except sqlite3.Error as e:
-        return f"Kesalahan database: {str(e)}"
-
-
 # Perbarui fungsi save_booking agar menerima full_name dan membership_type
 def save_booking(username, full_name, membership_type, booking_time, booking_date, price, encrypted_info):
     conn = sqlite3.connect("users.db")
