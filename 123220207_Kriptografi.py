@@ -282,33 +282,6 @@ def delete_booking(booking_id):
     conn.commit()
     conn.close()
 
-# def update_db():
-#     conn = sqlite3.connect("users.db")
-#     c = conn.cursor()
-
-#     # Periksa kolom di tabel bookings
-#     c.execute("PRAGMA table_info(bookings)")
-#     columns = [column[1] for column in c.fetchall()]
-#     if "price" not in columns:
-#         c.execute("ALTER TABLE bookings ADD COLUMN price INTEGER")
-#     if "full_name" not in columns:
-#         c.execute("ALTER TABLE bookings ADD COLUMN full_name TEXT")
-#     if "membership_type" not in columns:
-#         c.execute("ALTER TABLE bookings ADD COLUMN membership_type TEXT")
-
-#     # Periksa kolom di tabel completed_bookings
-#     c.execute("PRAGMA table_info(completed_bookings)")
-#     completed_columns = [column[1] for column in c.fetchall()]
-#     if "full_name" not in completed_columns:
-#         c.execute("ALTER TABLE completed_bookings ADD COLUMN full_name TEXT")
-#     if "membership_type" not in completed_columns:
-#         c.execute("ALTER TABLE completed_bookings ADD COLUMN membership_type TEXT")
-
-#     conn.commit()
-#     conn.close()
-
-# update_db()
-
 def update_completed_bookings_table():
     conn = sqlite3.connect("users.db")
     c = conn.cursor()
