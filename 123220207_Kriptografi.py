@@ -307,7 +307,7 @@ def delete_booking(booking_id):
 #     conn.commit()
 #     conn.close()
 
-update_db()
+# update_db()
 
 def update_completed_bookings_table():
     conn = sqlite3.connect("users.db")
