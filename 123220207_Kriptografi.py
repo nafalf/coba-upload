@@ -81,16 +81,15 @@ def validate_password(password):
         return "Password harus memiliki setidaknya satu angka."
     return None
 
-# Login user
-def login_user(username, password):
-    conn = sqlite3.connect(DB_PATH)
+# Register user
+def register_user(username, password):
+    conn = sqlite3.connect("users.db")
     c = conn.cursor()
-    c.execute("SELECT * FROM users WHERE username = ? AND password = ?", (username, password))
-    user = c.fetchone()
+    c.execute("INSERT INTO users (username, password) VALUES (?, ?)", (username, password))
+    conn.commit()
     conn.close()
-    return user
 
-# Function to check if user exists
+# Login user
 def login_user(username, password):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
@@ -303,6 +302,7 @@ def update_db():
 
     conn.commit()
     conn.close()
+
 
 def update_completed_bookings_table():
     conn = sqlite3.connect(DB_PATH)
