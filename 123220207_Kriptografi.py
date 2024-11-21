@@ -10,6 +10,11 @@ from PIL import Image, ImageDraw, ImageFont
 import io
 import numpy as np 
 from arc4 import ARC4
+import os
+
+st.write("Debug info:", locals()) 
+
+DB_PATH = os.path.join(os.path.expanduser("~"), ".streamlit", "users.db")
 
 # Fungsi hashing untuk password
 def hash_password(password):
@@ -18,7 +23,8 @@ def hash_password(password):
 
 # Database setup
 def init_db():
-    conn = sqlite3.connect("users.db")
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)  # Buat direktori jika belum ada
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     # Table for user accounts
     c.execute("""
@@ -65,14 +71,6 @@ def init_db():
     conn.commit()
     conn.close()
 
-# Register user
-def register_user(username, password):
-    conn = sqlite3.connect("users.db")
-    c = conn.cursor()
-    c.execute("INSERT INTO users (username, password) VALUES (?, ?)", (username, password))
-    conn.commit()
-    conn.close()
-
 # Fungsi validasi password
 def validate_password(password):
     if len(password) < 8:
@@ -85,25 +83,16 @@ def validate_password(password):
 
 # Login user
 def login_user(username, password):
-    conn = sqlite3.connect("users.db")
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("SELECT * FROM users WHERE username = ? AND password = ?", (username, password))
     user = c.fetchone()
     conn.close()
     return user
 
-
-# Function to register a user
-def register_user(username, password):
-    conn = sqlite3.connect("users.db")
-    c = conn.cursor()
-    c.execute("INSERT INTO users (username, password) VALUES (?, ?)", (username, password))
-    conn.commit()
-    conn.close()
-
 # Function to check if user exists
 def login_user(username, password):
-    conn = sqlite3.connect("users.db")
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("SELECT * FROM users WHERE username = ? AND password = ?", (username, password))
     user = c.fetchone()
@@ -112,7 +101,7 @@ def login_user(username, password):
 
 # Menyimpan User yang Berhasil Register
 def get_registered_users():
-    conn = sqlite3.connect("users.db")
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("SELECT username FROM users")
     users = c.fetchall()
@@ -121,7 +110,7 @@ def get_registered_users():
 
 # Hapus Data User
 def delete_user(username):
-    conn = sqlite3.connect("users.db")
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("DELETE FROM users WHERE username = ?", (username,))
     conn.commit()
@@ -129,7 +118,7 @@ def delete_user(username):
 
 # Function to save booking
 def save_booking(username, booking_time, booking_date, encrypted_info):
-    conn = sqlite3.connect("users.db")
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("""
         INSERT INTO bookings (username, booking_time, booking_date, encrypted_info)
@@ -142,7 +131,7 @@ def save_booking(username, booking_time, booking_date, encrypted_info):
 
 # Function to save encryption key
 def save_encryption_key(booking_id, encryption_key):
-    conn = sqlite3.connect("users.db")
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("INSERT INTO encryption_keys (booking_id, encryption_key) VALUES (?, ?)", (booking_id, encryption_key))
     conn.commit()
@@ -150,7 +139,7 @@ def save_encryption_key(booking_id, encryption_key):
 
 # Function to get all bookings
 def get_all_bookings():
-    conn = sqlite3.connect("users.db")
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     # Pastikan kolom 'price' disertakan dalam query
     c.execute("""
@@ -164,7 +153,7 @@ def get_all_bookings():
 
 # Function to get encryption keys
 def get_encryption_keys():
-    conn = sqlite3.connect("users.db")
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("""
         SELECT b.id, b.username, b.booking_time, b.booking_date, ek.encryption_key 
@@ -193,14 +182,14 @@ def encrypt_info_rot13_aes(data, aes_key):
     rot13_encrypted = rot13_manual(data)
     
     # Enkripsi AES
-    aes_key = aes_key.encode()[:16]  # Pastikan kunci 16 byte
-    iv = get_random_bytes(16)  # Inisialisasi vektor acak
+    aes_key = aes_key.encode()[:16]  
+    iv = get_random_bytes(16)  
     cipher = AES.new(aes_key, AES.MODE_CBC, iv)
     
     # Padding data sesuai ukuran blok AES
     padded_data = pad(rot13_encrypted.encode(), AES.block_size)
     encrypted_data = iv + cipher.encrypt(padded_data)
-    return base64.b64encode(encrypted_data).decode()  # Kembalikan sebagai string base64
+    return base64.b64encode(encrypted_data).decode()  
 
 # Fungsi dekripsi: AES diikuti dengan ROT13
 def decrypt_info_rot13_aes(encrypted_data, aes_key):
@@ -208,7 +197,7 @@ def decrypt_info_rot13_aes(encrypted_data, aes_key):
         # Dekripsi data AES
         encrypted_data = base64.b64decode(encrypted_data)
         iv = encrypted_data[:16]
-        aes_key = aes_key.encode()[:16]  # Pastikan kunci 16 byte
+        aes_key = aes_key.encode()[:16]  
         cipher = AES.new(aes_key, AES.MODE_CBC, iv)
         decrypted_padded_data = cipher.decrypt(encrypted_data[16:])
         decrypted_data = unpad(decrypted_padded_data, AES.block_size)
@@ -240,7 +229,7 @@ def decrypt_info_rot13_aes(encrypted_data, aes_key):
 
 # Menyelesaikan Pesanan
 def complete_booking(booking_id):
-    conn = sqlite3.connect("users.db")
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
 
     # Ambil detail pesanan dari bookings
@@ -267,7 +256,7 @@ def complete_booking(booking_id):
 
 # Daftar Pesanan
 def get_all_completed_bookings():
-    conn = sqlite3.connect("users.db")
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("SELECT id, username, full_name, booking_time, booking_date, encrypted_info FROM completed_bookings")
     completed_bookings = c.fetchall()
@@ -276,15 +265,94 @@ def get_all_completed_bookings():
 
 # Menghapus Daftar Pesanan
 def delete_booking(booking_id):
-    conn = sqlite3.connect("users.db")
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("DELETE FROM bookings WHERE id = ?", (booking_id,))
     conn.commit()
     conn.close()
 
+def update_db():
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+
+    # Periksa apakah tabel bookings ada
+    c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='bookings';")
+    if not c.fetchone():
+        # Buat tabel jika belum ada
+        c.execute("""
+            CREATE TABLE bookings (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT,
+                full_name TEXT,
+                membership_type TEXT,
+                booking_time TEXT,
+                booking_date TEXT,
+                price INTEGER,
+                encrypted_info TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+    # Pastikan kolom ada di tabel
+    c.execute("PRAGMA table_info(bookings)")
+    columns = [column[1] for column in c.fetchall()]
+    if "price" not in columns:
+        c.execute("ALTER TABLE bookings ADD COLUMN price INTEGER")
+    if "membership_type" not in columns:
+        c.execute("ALTER TABLE bookings ADD COLUMN membership_type TEXT")
+
+    conn.commit()
+    conn.close()
+
+
+update_db()
+
+def update_completed_bookings_table():
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+
+    # Periksa apakah kolom 'full_name' ada di tabel 'completed_bookings'
+    c.execute("PRAGMA table_info(completed_bookings)")
+    columns = [column[1] for column in c.fetchall()]
+    
+    # Tambahkan kolom 'full_name' jika belum ada
+    if "full_name" not in columns:
+        c.execute("ALTER TABLE completed_bookings ADD COLUMN full_name TEXT")
+
+    # Tambahkan kolom 'membership_type' jika belum ada
+    if "membership_type" not in columns:
+        c.execute("ALTER TABLE completed_bookings ADD COLUMN membership_type TEXT")
+
+    conn.commit()
+    conn.close()
+
+# Jalankan fungsi update
+update_completed_bookings_table()
+
+def reset_completed_bookings():
+    """
+    Menghapus semua data di tabel completed_bookings dan mereset ID mulai dari 1.
+    """
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+
+        # Hapus semua data di tabel completed_bookings
+        c.execute("DELETE FROM completed_bookings")
+
+        # Reset autoincrement ID
+        c.execute("DELETE FROM sqlite_sequence WHERE name='completed_bookings'")
+
+        conn.commit()
+        conn.close()
+        return "Riwayat pesanan berhasil dihapus dan ID dimulai dari 1 kembali."
+    except sqlite3.Error as e:
+        return f"Kesalahan database: {str(e)}"
+
+
 # Perbarui fungsi save_booking agar menerima full_name dan membership_type
 def save_booking(username, full_name, membership_type, booking_time, booking_date, price, encrypted_info):
-    conn = sqlite3.connect("users.db")
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("""
         INSERT INTO bookings (username, full_name, membership_type, booking_time, booking_date, price, encrypted_info)
@@ -369,36 +437,24 @@ def display_bookings(bookings, is_completed=False):
 # Fungsi untuk membuat kartu member
 def generate_member_card(full_name, membership_type, booking_date, booking_time):
     # Template ukuran kartu
-    width, height = 600, 400
+    width, height = 600, 500  
     card = Image.new("RGB", (width, height), color="white")
     draw = ImageDraw.Draw(card)
 
-    # Font untuk teks utama
-    try:
-        main_font = ImageFont.truetype("arial.ttf", 40)  # Gunakan font Arial
-        text_font = ImageFont.truetype("arial.ttf", 20)
-    except IOError:
-        main_font = ImageFont.load_default()  # Gunakan default jika Arial tidak ditemukan
-        text_font = ImageFont.load_default()
-
     # Tambahkan teks utama di tengah kartu
     main_text = "KARTU MEMBER GYM"
-    text_bbox = draw.textbbox((0, 0), main_text, font=main_font)  # Menggunakan textbbox
-    text_width, text_height = text_bbox[2] - text_bbox[0], text_bbox[3] - text_bbox[1]
-    draw.text(((width - text_width) / 2, 50), main_text, fill="black", font=main_font)
+    text_width, text_height = draw.textsize(main_text) 
+    draw.text(((width - text_width) / 2, 50), main_text, fill="black")  
 
-    # Tambahkan detail lainnya
-    draw.text((50, 150), f"Nama: {full_name}", fill="black", font=text_font)
-    draw.text((50, 200), f"Jenis Keanggotaan: {membership_type}", fill="black", font=text_font)
-    draw.text((50, 250), f"Tanggal Pemesanan: {booking_date}", fill="black", font=text_font)
-    draw.text((50, 300), f"Waktu Pemesanan: {booking_time}", fill="black", font=text_font)
+    # Tambahkan detail lainnya tanpa font khusus
+    draw.text((50, 150), f"Nama: {full_name}", fill="black")  # Teks nama
+    draw.text((50, 200), f"Jenis Keanggotaan: {membership_type}", fill="black")  # Keanggotaan
+    draw.text((50, 250), f"Tanggal Pemesanan: {booking_date}", fill="black")  # Tanggal
+    draw.text((50, 300), f"Waktu Pemesanan: {booking_time}", fill="black")  # Waktu
 
-    # Tambahkan garis tepi
     draw.rectangle([(0, 0), (width - 1, height - 1)], outline="black", width=3)
 
     return card
-
-
 
 # Fungsi untuk mengunduh file kartu member
 def download_card_as_image(card, filename="member_card.png"):
@@ -488,18 +544,12 @@ def decrypt_with_rc4(encrypted_data, key):
     return rc4_crypt(encrypted_data, key.encode())
 
 def reset_bookings():
-    """
-    Menghapus semua data di tabel bookings dan completed_bookings, serta mereset ID auto-increment.
-    """
     try:
-        conn = sqlite3.connect("users.db")
+        conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
 
-        # Hapus semua data di tabel bookings dan reset ID
         c.execute("DELETE FROM bookings")
         c.execute("DELETE FROM sqlite_sequence WHERE name='bookings'")
-
-        # Hapus semua data di tabel completed_bookings dan reset ID
         c.execute("DELETE FROM completed_bookings")
         c.execute("DELETE FROM sqlite_sequence WHERE name='completed_bookings'")
 
@@ -508,6 +558,7 @@ def reset_bookings():
         return "Semua data pesanan berhasil dihapus dan ID telah direset."
     except sqlite3.Error as e:
         return f"Kesalahan database: {str(e)}"
+
 
 # Initialize database
 init_db()
@@ -525,10 +576,7 @@ if st.session_state["login_status"] is None:  # Not logged in
 
     if menu == "Dashboard":
         st.title("Selamat Datang di Secure App - Sistem Pemesanan Gym")
-        st.image(
-            "https://png.pngtree.com/background/20230516/original/pngtree-large-room-full-of-equipment-in-a-gym-picture-image_2611111.jpg",
-            use_column_width=True,
-        )
+        st.image("assets/login.jpg", use_column_width=True)
         st.markdown("""
         **Pada aplikasi ini menyediakan layanan:**
         - Pemesanan Tempat Gym yang sudah terenkripsi dengan keamanan tinggi.
@@ -714,10 +762,7 @@ else:  # Logged in
         customer_action = st.sidebar.radio("Navigasi", ["Pemesanan Tempat Gym", "Kirim Pesan Gambar Kartu Member", "Kirim File Detail Pemesanan", "Logout"])
         
         if customer_action == "Pemesanan Tempat Gym":
-            st.image(
-                "https://e1.pxfuel.com/desktop-wallpaper/217/624/desktop-wallpaper-gym-muscular.jpg",
-                use_column_width=True,
-            )
+            st.image("assets/login.jpg", use_column_width=True)
             st.subheader("Silahkan Lakukan Pemesanan Sesuai Kebutuhan")
 
             # Input data pemesanan
@@ -858,5 +903,3 @@ else:  # Logged in
             st.session_state["role"] = None
             st.session_state["user"] = None  # Reset user
             st.success("Berhasil logout!")
-
-            
