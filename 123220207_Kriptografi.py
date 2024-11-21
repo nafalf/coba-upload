@@ -12,8 +12,6 @@ import numpy as np
 from arc4 import ARC4
 import os
 
-st.write("Debug info:", locals()) 
-
 DB_PATH = os.path.join(os.path.expanduser("~"), ".streamlit", "users.db")
 
 # Fungsi hashing untuk password
