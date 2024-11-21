@@ -304,9 +304,6 @@ def update_db():
     conn.commit()
     conn.close()
 
-
-update_db()
-
 def update_completed_bookings_table():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
