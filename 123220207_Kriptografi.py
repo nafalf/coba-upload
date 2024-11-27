@@ -20,6 +20,7 @@ def hash_password(password):
 def init_db():
     conn = sqlite3.connect("users.db")
     c = conn.cursor()
+
     # Table for user accounts
     c.execute("""
         CREATE TABLE IF NOT EXISTS users (
@@ -41,14 +42,6 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
-    # Table for encryption keys
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS encryption_keys (
-            booking_id INTEGER PRIMARY KEY,
-            encryption_key TEXT,
-            FOREIGN KEY (booking_id) REFERENCES bookings (id)
-        )
-    """)
     # Table for completed bookings
     c.execute("""
         CREATE TABLE IF NOT EXISTS completed_bookings (
@@ -64,6 +57,7 @@ def init_db():
     """)
     conn.commit()
     conn.close()
+
 
 # Register user
 def register_user(username, password):
@@ -272,24 +266,24 @@ def delete_booking(booking_id):
     conn.close()
 
 
-def update_completed_bookings_table():
-    conn = sqlite3.connect("users.db")
-    c = conn.cursor()
+# def update_completed_bookings_table():
+#     conn = sqlite3.connect("users.db")
+#     c = conn.cursor()
 
-    # Periksa apakah kolom 'full_name' ada di tabel 'completed_bookings'
-    c.execute("PRAGMA table_info(completed_bookings)")
-    columns = [column[1] for column in c.fetchall()]
-    
-    # Tambahkan kolom 'full_name' jika belum ada
-    if "full_name" not in columns:
-        c.execute("ALTER TABLE completed_bookings ADD COLUMN full_name TEXT")
+#     # Periksa apakah kolom 'full_name' ada di tabel 'completed_bookings'
+#     c.execute("PRAGMA table_info(completed_bookings)")
+#     columns = [column[1] for column in c.fetchall()]
 
-    # Tambahkan kolom 'membership_type' jika belum ada
-    if "membership_type" not in columns:
-        c.execute("ALTER TABLE completed_bookings ADD COLUMN membership_type TEXT")
+#     # Tambahkan kolom 'full_name' jika belum ada
+#     if "full_name" not in columns:
+#         c.execute("ALTER TABLE completed_bookings ADD COLUMN full_name TEXT")
 
-    conn.commit()
-    conn.close()
+#     # Tambahkan kolom 'membership_type' jika belum ada
+#     if "membership_type" not in columns:
+#         c.execute("ALTER TABLE completed_bookings ADD COLUMN membership_type TEXT")
+
+#     conn.commit()
+#     conn.close()
 
 # Jalankan fungsi update
 update_completed_bookings_table()
