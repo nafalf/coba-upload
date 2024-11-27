@@ -286,7 +286,7 @@ def delete_booking(booking_id):
 #     conn.close()
 
 # Jalankan fungsi update
-update_completed_bookings_table()
+# update_completed_bookings_table()
 
 def reset_completed_bookings():
     """
