@@ -10,6 +10,8 @@ from PIL import Image, ImageDraw, ImageFont
 import io
 import numpy as np 
 from arc4 import ARC4
+import zlib
+
 
 # Fungsi hashing untuk password
 def hash_password(password):
@@ -20,7 +22,6 @@ def hash_password(password):
 def init_db():
     conn = sqlite3.connect("users.db")
     c = conn.cursor()
-
     # Table for user accounts
     c.execute("""
         CREATE TABLE IF NOT EXISTS users (
@@ -42,6 +43,14 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
+    # Table for encryption keys
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS encryption_keys (
+            booking_id INTEGER PRIMARY KEY,
+            encryption_key TEXT,
+            FOREIGN KEY (booking_id) REFERENCES bookings (id)
+        )
+    """)
     # Table for completed bookings
     c.execute("""
         CREATE TABLE IF NOT EXISTS completed_bookings (
@@ -57,7 +66,6 @@ def init_db():
     """)
     conn.commit()
     conn.close()
-
 
 # Register user
 def register_user(username, password):
@@ -78,6 +86,24 @@ def validate_password(password):
     return None
 
 # Login user
+def login_user(username, password):
+    conn = sqlite3.connect("users.db")
+    c = conn.cursor()
+    c.execute("SELECT * FROM users WHERE username = ? AND password = ?", (username, password))
+    user = c.fetchone()
+    conn.close()
+    return user
+
+
+# Function to register a user
+def register_user(username, password):
+    conn = sqlite3.connect("users.db")
+    c = conn.cursor()
+    c.execute("INSERT INTO users (username, password) VALUES (?, ?)", (username, password))
+    conn.commit()
+    conn.close()
+
+# Function to check if user exists
 def login_user(username, password):
     conn = sqlite3.connect("users.db")
     c = conn.cursor()
@@ -128,14 +154,7 @@ def save_encryption_key(booking_id, encryption_key):
 def get_all_bookings():
     conn = sqlite3.connect("users.db")
     c = conn.cursor()
-    
-    # Cek kolom 'price' di tabel 'bookings'
-    c.execute("PRAGMA table_info(bookings)")
-    columns = [column[1] for column in c.fetchall()]
-    
-    if "price" not in columns:
-        raise ValueError("Kolom 'price' tidak ada di tabel 'bookings'.")
-    
+    # Pastikan kolom 'price' disertakan dalam query
     c.execute("""
         SELECT id, username, booking_time, booking_date, price, encrypted_info, full_name, membership_type
         FROM bookings
@@ -265,28 +284,49 @@ def delete_booking(booking_id):
     conn.commit()
     conn.close()
 
+def update_db():
+    conn = sqlite3.connect("users.db")
+    c = conn.cursor()
 
-# def update_completed_bookings_table():
-#     conn = sqlite3.connect("users.db")
-#     c = conn.cursor()
+    # Periksa kolom di tabel bookings
+    c.execute("PRAGMA table_info(bookings)")
+    columns = [column[1] for column in c.fetchall()]
+    if "price" not in columns:
+        c.execute("ALTER TABLE bookings ADD COLUMN price INTEGER")
+    if "full_name" not in columns:
+        c.execute("ALTER TABLE bookings ADD COLUMN full_name TEXT")
+    if "membership_type" not in columns:
+        c.execute("ALTER TABLE bookings ADD COLUMN membership_type TEXT")
 
-#     # Periksa apakah kolom 'full_name' ada di tabel 'completed_bookings'
-#     c.execute("PRAGMA table_info(completed_bookings)")
-#     columns = [column[1] for column in c.fetchall()]
+    # Periksa kolom di tabel completed_bookings
+    c.execute("PRAGMA table_info(completed_bookings)")
+    completed_columns = [column[1] for column in c.fetchall()]
+    if "full_name" not in completed_columns:
+        c.execute("ALTER TABLE completed_bookings ADD COLUMN full_name TEXT")
+    if "membership_type" not in completed_columns:
+        c.execute("ALTER TABLE completed_bookings ADD COLUMN membership_type TEXT")
 
-#     # Tambahkan kolom 'full_name' jika belum ada
-#     if "full_name" not in columns:
-#         c.execute("ALTER TABLE completed_bookings ADD COLUMN full_name TEXT")
+    conn.commit()
+    conn.close()
 
-#     # Tambahkan kolom 'membership_type' jika belum ada
-#     if "membership_type" not in columns:
-#         c.execute("ALTER TABLE completed_bookings ADD COLUMN membership_type TEXT")
 
-#     conn.commit()
-#     conn.close()
+def update_completed_bookings_table():
+    conn = sqlite3.connect("users.db")
+    c = conn.cursor()
 
-# Jalankan fungsi update
-# update_completed_bookings_table()
+    # Periksa apakah kolom ada di tabel
+    c.execute("PRAGMA table_info(completed_bookings)")
+    columns = [column[1] for column in c.fetchall()]
+    
+    # Tambahkan kolom hanya jika belum ada
+    if "full_name" not in columns:
+        c.execute("ALTER TABLE completed_bookings ADD COLUMN full_name TEXT")
+    if "membership_type" not in columns:
+        c.execute("ALTER TABLE completed_bookings ADD COLUMN membership_type TEXT")
+
+    conn.commit()
+    conn.close()
+
 
 def reset_completed_bookings():
     """
@@ -393,6 +433,14 @@ def display_bookings(bookings, is_completed=False):
                             st.session_state[delete_key] = False
                             st.warning(f"Pesanan ID {booking_id} tidak jadi dihapus.")
 
+    # Sisipkan data biner ke gambar
+    for i in range(len(bin_data)):
+        flat_img[i] = (flat_img[i] & ~1) | int(bin_data[i])
+
+    # Rekonstruksi gambar
+    reshaped_img = flat_img.reshape(img_array.shape)
+    return Image.fromarray(reshaped_img.astype('uint8'))
+
 # Fungsi untuk membuat kartu member
 def generate_member_card(full_name, membership_type, booking_date, booking_time):
     # Template ukuran kartu
@@ -455,18 +503,13 @@ def download_card_as_image(card, filename="member_card.png"):
     """
     return button_html
 
-
-# Fungsi untuk menyembunyikan teks dalam gambar
 def hide_text_in_image(image, text):
     data = text + "###END###"  # Tanda akhir data
     bin_data = ''.join(format(ord(char), '08b') for char in data)
-    
-    # Convert image to numpy array
-    img_array = np.array(image)
-    flat_img = img_array.flatten()
 
-    if len(bin_data) > len(flat_img):
-        raise ValueError("Teks terlalu besar untuk disisipkan dalam gambar!")
+    # Convert image to numpy array
+    img_array = np.array(image, dtype=np.int32)  # Menggunakan tipe data yang lebih besar
+    flat_img = img_array.flatten()
 
     for i in range(len(bin_data)):
         flat_img[i] = (flat_img[i] & ~1) | int(bin_data[i])
@@ -474,13 +517,13 @@ def hide_text_in_image(image, text):
     reshaped_img = flat_img.reshape(img_array.shape)
     return Image.fromarray(reshaped_img.astype('uint8'))
 
-# Fungsi untuk mengambil teks tersembunyi dari gambar
 def retrieve_text_from_image(image):
     img_array = np.array(image).flatten()
-    bin_data = [str(pixel & 1) for pixel in img_array[:len(img_array)]]
+    bin_data = [str(pixel & 1) for pixel in img_array]
     byte_array = [''.join(bin_data[i:i+8]) for i in range(0, len(bin_data), 8)]
-    chars = [chr(int(byte, 2)) for byte in byte_array]
+    chars = [chr(int(byte, 2)) for byte in byte_array if int(byte, 2) < 256]
     text = ''.join(chars)
+
     end_marker = "###END###"
     if end_marker in text:
         return text[:text.index(end_marker)]
@@ -522,9 +565,6 @@ def reset_bookings():
         conn = sqlite3.connect("users.db")
         c = conn.cursor()
 
-        # Matikan referential integrity sementara untuk menghindari kesalahan foreign key
-        c.execute("PRAGMA foreign_keys = OFF")
-
         # Hapus semua data di tabel bookings dan reset ID
         c.execute("DELETE FROM bookings")
         c.execute("DELETE FROM sqlite_sequence WHERE name='bookings'")
@@ -533,15 +573,11 @@ def reset_bookings():
         c.execute("DELETE FROM completed_bookings")
         c.execute("DELETE FROM sqlite_sequence WHERE name='completed_bookings'")
 
-        # Aktifkan kembali referential integrity
-        c.execute("PRAGMA foreign_keys = ON")
-
         conn.commit()
         conn.close()
         return "Semua data pesanan berhasil dihapus dan ID telah direset."
     except sqlite3.Error as e:
         return f"Kesalahan database: {str(e)}"
-
 
 # Initialize database
 init_db()
@@ -692,7 +728,7 @@ else:  # Logged in
                     st.error(result)
             
         elif admin_action == "Dekripsi Pesan Gambar Member":
-            st.subheader("Melihat pesan yang telah dikirim dengan Kartu Member")
+            st.subheader("Dekripsi Steganografi Pelanggan")
             uploaded_image = st.file_uploader("Upload Gambar Kartu Member dengan Pesan", type=["png", "jpg", "jpeg"])
             if st.button("Dekripsi Pesan"):
                 if uploaded_image:
@@ -703,7 +739,7 @@ else:  # Logged in
         elif admin_action == "Dekripsi File Pembayaran":
             st.subheader("Dekripsi File Pembayaran")
             
-            uploaded_file = st.file_uploader("Upload file terenkripsi", type=["bin", "enc", "txt", "pdf"])
+            uploaded_file = st.file_uploader("Upload file terenkripsi", type=["bin", "enc", "txt", "pdf", "docx"])
             rc4_key = st.text_input("Masukkan Kunci RC4 (3-4 Karakter)")
             
             if st.button("Dekripsi File"):
@@ -790,7 +826,7 @@ else:  # Logged in
 
                     # Unduh Gambar
                     card = generate_member_card(full_name, membership_type, booking_date, booking_time)
-                    st.image(card, use_column_width=False)
+                    st.image(card)
 
                     # Buat file detail pemesanan
                     booking_file_name = f"{full_name.replace(' ', '_')}_Booking_Details.txt"
@@ -825,9 +861,11 @@ else:  # Logged in
                         mime="text/plain",
                         key="download_booking_details"
                     )
+
+                    
         
         elif customer_action == "Kirim Pesan Gambar Kartu Member":
-            st.write("Upload gambar kartu member:")
+            st.subheader("Pesan Dalam Gambar - Steganografi")
             uploaded_image = st.file_uploader("Upload Gambar Kartu Member", type=["png", "jpg", "jpeg"])
             secret_message = st.text_input("Masukkan Pesan Rahasia untuk Disisipkan")
             if st.button("Sisipkan Pesan dan Kirim"):
@@ -835,7 +873,7 @@ else:  # Logged in
                     image = Image.open(uploaded_image).convert("RGB")
                     encoded_image = hide_text_in_image(image, secret_message)
                     st.success("Pesan berhasil disisipkan ke dalam gambar.")
-                    st.image(encoded_image, use_column_width=False)
+                    st.image(encoded_image)
 
                     # Unduh gambar terenkripsi
                     buf = io.BytesIO()
