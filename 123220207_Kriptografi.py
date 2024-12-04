@@ -271,7 +271,7 @@ def complete_booking(booking_id):
 def get_all_completed_bookings():
     conn = sqlite3.connect("users.db")
     c = conn.cursor()
-    c.execute("SELECT id, username, full_name, booking_time, booking_date, encrypted_info FROM completed_bookings")
+    c.execute("SELECT id, username, full_name, booking_time, booking_date, membership_type, encrypted_info FROM completed_bookings")
     completed_bookings = c.fetchall()
     conn.close()
     return completed_bookings
@@ -504,12 +504,17 @@ def download_card_as_image(card, filename="member_card.png"):
     return button_html
 
 def hide_text_in_image(image, text):
+    # Encode newline characters explicitly
+    text = text.replace("\n", "\\n")
     data = text + "###END###"  # Tanda akhir data
     bin_data = ''.join(format(ord(char), '08b') for char in data)
 
     # Convert image to numpy array
     img_array = np.array(image, dtype=np.int32)  # Menggunakan tipe data yang lebih besar
     flat_img = img_array.flatten()
+
+    if len(bin_data) > len(flat_img):
+        raise ValueError("Teks terlalu besar untuk disisipkan dalam gambar!")
 
     for i in range(len(bin_data)):
         flat_img[i] = (flat_img[i] & ~1) | int(bin_data[i])
@@ -526,8 +531,11 @@ def retrieve_text_from_image(image):
 
     end_marker = "###END###"
     if end_marker in text:
-        return text[:text.index(end_marker)]
+        extracted_text = text[:text.index(end_marker)]
+        # Decode newline characters explicitly
+        return extracted_text.replace("\\n", "\n")
     return "Data tidak ditemukan."
+
 
 def rc4_crypt(data, key):
     """Sederhana implementasi RC4 untuk enkripsi/dekripsi."""
@@ -712,11 +720,12 @@ else:  # Logged in
             completed_bookings = get_all_completed_bookings()
             if completed_bookings:
                 for completed_booking in completed_bookings:
-                    booking_id, username, full_name, booking_time, booking_date, encrypted_info = completed_booking
+                    booking_id, username, full_name, booking_time, booking_date, membership_type, encrypted_info = completed_booking
                     with st.expander(f"Pesanan #{booking_id} - {username} (Selesai)"):
                         st.write(f"**Nama Lengkap:** {full_name}")
                         st.write(f"**Waktu Pemesanan:** {booking_time}")
                         st.write(f"**Tanggal Pemesanan:** {booking_date}")
+                        st.write(f"**Jenis Keanggotaan:** {membership_type}")
             else:
                 st.warning("Belum ada riwayat pesanan.")
             
