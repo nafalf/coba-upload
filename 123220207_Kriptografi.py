@@ -504,17 +504,12 @@ def download_card_as_image(card, filename="member_card.png"):
     return button_html
 
 def hide_text_in_image(image, text):
-    # Encode newline characters explicitly
-    text = text.replace("\n", "\\n")
     data = text + "###END###"  # Tanda akhir data
     bin_data = ''.join(format(ord(char), '08b') for char in data)
 
     # Convert image to numpy array
     img_array = np.array(image, dtype=np.int32)  # Menggunakan tipe data yang lebih besar
     flat_img = img_array.flatten()
-
-    if len(bin_data) > len(flat_img):
-        raise ValueError("Teks terlalu besar untuk disisipkan dalam gambar!")
 
     for i in range(len(bin_data)):
         flat_img[i] = (flat_img[i] & ~1) | int(bin_data[i])
@@ -531,11 +526,8 @@ def retrieve_text_from_image(image):
 
     end_marker = "###END###"
     if end_marker in text:
-        extracted_text = text[:text.index(end_marker)]
-        # Decode newline characters explicitly
-        return extracted_text.replace("\\n", "\n")
+        return text[:text.index(end_marker)]
     return "Data tidak ditemukan."
-
 
 def rc4_crypt(data, key):
     """Sederhana implementasi RC4 untuk enkripsi/dekripsi."""
